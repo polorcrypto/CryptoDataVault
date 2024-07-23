@@ -1,0 +1,87 @@
+from cryptography.fernet import Fernet
+import pandas as pd
+import numpy as np
+import json
+import os
+
+class CryptoDataVault:
+    def __init__(self, key_file: str):
+        self.key_file = key_file
+        self.key = self.load_or_generate_key()
+        self.cipher_suite = Fernet(self.key)
+
+    def load_or_generate_key(self):
+        """
+        Load an existing key from a file or generate a new one if the file does not exist.
+        """
+        if os.path.exists(self.key_file):
+            with open(self.key_file, 'rb') as file:
+                key = file.read()
+        else:
+            key = Fernet.generate_key()
+            with open(self.key_file, 'wb') as file:
+                file.write(key)
+        return key
+
+    def encrypt_data(self, data: str) -> str:
+        """
+        Encrypt data using the loaded or generated key.
+        """
+        encrypted_data = self.cipher_suite.encrypt(data.encode())
+        return encrypted_data.decode()
+
+    def decrypt_data(self, encrypted_data: str) -> str:
+        """
+        Decrypt data using the loaded or generated key.
+        """
+        decrypted_data = self.cipher_suite.decrypt(encrypted_data.encode())
+        return decrypted_data.decode()
+
+    def save_data(self, data: dict, file_name: str):
+        """
+        Save encrypted data to a file.
+        """
+        encrypted_data = self.encrypt_data(json.dumps(data))
+        with open(file_name, 'w') as file:
+            file.write(encrypted_data)
+
+    def load_data(self, file_name: str) -> dict:
+        """
+        Load and decrypt data from a file.
+        """
+        with open(file_name, 'r') as file:
+            encrypted_data = file.read()
+        decrypted_data = self.decrypt_data(encrypted_data)
+        return json.loads(decrypted_data)
+
+    def analyze_data(self, data: dict):
+        """
+        Perform data analysis on the decrypted data.
+        """
+        df = pd.DataFrame(data)
+        summary = {
+            "mean": df.mean(),
+            "std_dev": df.std(),
+            "median": df.median()
+        }
+        return summary
+
+# Example usage
+if __name__ == "__main__":
+    key_file = 'secret.key'
+    vault = CryptoDataVault(key_file)
+
+    # Example data to be encrypted and stored
+    example_data = {
+        'prices': [100, 200, 300, 400, 500],
+        'volumes': [10, 20, 30, 40, 50]
+    }
+
+    # Save data
+    vault.save_data(example_data, 'encrypted_data.json')
+
+    # Load and analyze data
+    loaded_data = vault.load_data('encrypted_data.json')
+    analysis_result = vault.analyze_data(loaded_data)
+
+    print("Analysis Result:", analysis_result)
